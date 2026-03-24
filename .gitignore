@@ -1,0 +1,8 @@
+old/
+document_for reference/
+venv/
+.vscode/
+.adiuvare/
+__pycache__/
+*.pyc
+
