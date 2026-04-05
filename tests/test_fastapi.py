@@ -1,7 +1,21 @@
-from fastapi import FastAPI, Request
+import asyncio
+import time
+
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from adiuvare import Guard
+from adiuvare.core.models import RequestContext, SignalResult
+from adiuvare.signals.base import SoftSignal
+
+
+class SlowSignal(SoftSignal):
+    name = "slow"
+    weight = 0.10
+
+    async def extract(self, ctx: RequestContext) -> SignalResult:
+        await asyncio.sleep(0.2)
+        return SignalResult(score=0.0, reason="slow_clean")
 
 
 def test_fastapi_middleware_allows_clean_request():
@@ -10,8 +24,7 @@ def test_fastapi_middleware_allows_clean_request():
     guard.use(app, framework="fastapi")
 
     @app.get("/ping")
-    async def ping(request: Request):
-        assert request.state.adiuvare_event is not None
+    async def ping():
         return {"ok": True}
 
     client = TestClient(app)
@@ -35,9 +48,9 @@ def test_fastapi_middleware_blocks_when_identity_is_blocked():
     assert res.status_code == 429
 
 
-def test_guard_event_hook_sees_pipeline_event():
+def test_fastapi_runs_trackB_in_background():
     app = FastAPI()
-    guard = Guard()
+    guard = Guard(soft_signals=[SlowSignal()])
     seen = []
 
     @guard.hooks.on_event
@@ -46,15 +59,17 @@ def test_guard_event_hook_sees_pipeline_event():
 
     guard.use(app, framework="fastapi")
 
-    @app.post("/login")
-    async def login():
+    @app.get("/ping")
+    async def ping():
         return {"ok": True}
 
     client = TestClient(app)
-    res = client.post(
-        "/login",
-        content="select * from users",
-        headers={"User-Agent": "Mozilla/5.0", "x-user-id": "u2"},
-    )
+    started = time.perf_counter()
+    res = client.get("/ping", headers={"User-Agent": "Mozilla/5.0", "x-user-id": "u2"})
+    elapsed = time.perf_counter() - started
+
     assert res.status_code == 200
-    assert seen == ["flag"]
+    assert elapsed < 0.18
+    assert seen == []
+    time.sleep(0.3)
+    assert seen == ["allow"]

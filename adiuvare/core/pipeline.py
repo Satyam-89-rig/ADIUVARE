@@ -22,6 +22,10 @@ class Pipeline:
         if not gate.passed:
             return gate, None
 
+        event = await self.trackB(ctx)
+        return gate, event
+
+    async def trackB(self, ctx):
         sig_res = {}
         for sig in self._soft_signals:
             try:
@@ -45,4 +49,4 @@ class Pipeline:
             verdict=verdict,
             breakdown=breakdown,
         )
-        return gate, event
+        return event
