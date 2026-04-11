@@ -1,0 +1,5 @@
+Expected shape for later:
+
+- local source lives here
+- compiled library sits one level up as libinjection.dll on Windows
+- wrapper falls back quietly for now

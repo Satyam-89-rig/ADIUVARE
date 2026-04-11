@@ -1,5 +1,7 @@
 from ..core.models import RequestContext, SignalResult
+from ..vendor import detect_sqli, detect_xss, normalize
 from .base import SoftSignal
+from .patterns import check_path, check_sql, check_xss
 
 
 class PayloadSignal(SoftSignal):
@@ -10,12 +12,38 @@ class PayloadSignal(SoftSignal):
         if not ctx.payload:
             return SignalResult(score=0.0, reason="no_payload")
 
-        text = ctx.payload.lower()
+        text = normalize(ctx.payload)
+        sql_lib = detect_sqli(text)
+        xss_lib = detect_xss(text)
+        sql_pat = check_sql(text)
+        xss_pat = check_xss(text)
+        path_pat = check_path(text)
 
-        if ("select " in text and "from" in text) or "union" in text or "drop" in text:
-            return SignalResult(score=0.7, reason="sql_hit")
+        hits: list[tuple[float, str]] = []
+        if sql_lib["hit"]:
+            hits.append((max(sql_lib["conf"], 0.82), sql_lib["fp"] or "sql_lib"))
+        if sql_pat[0]:
+            hits.append((sql_pat[1], sql_pat[2]))
+        if xss_lib["hit"]:
+            hits.append((max(xss_lib["conf"] * 0.80, 0.62), "xss_lib"))
+        if xss_pat[0]:
+            hits.append((xss_pat[1], xss_pat[2]))
+        if path_pat[0]:
+            hits.append((path_pat[1], path_pat[2]))
 
-        if "<script" in text or "javascript:" in text:
-            return SignalResult(score=0.6, reason="xss_hit")
+        if not hits:
+            return SignalResult(score=0.0, reason="clean")
 
-        return SignalResult(score=0.0, reason="clean")
+        top = max(hits, key=lambda item: item[0])
+        score = top[0]
+        if len(hits) > 1:
+            avg = sum(item[0] for item in hits) / len(hits)
+            score = min(1.0, (top[0] * 0.75) + (avg * 0.25))
+
+        detail = {
+            "sql_fp": sql_lib.get("fp", ""),
+            "sql_pat": sql_pat[2],
+            "xss_pat": xss_pat[2],
+            "path_pat": path_pat[2],
+        }
+        return SignalResult(score=score, reason=top[1], detail=detail)

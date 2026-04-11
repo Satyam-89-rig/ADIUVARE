@@ -39,7 +39,13 @@ class Pipeline:
 
         score, breakdown = compute_score(sig_res, ctx.snapshot)
         identity_risk = sig_res.get("identity").score if "identity" in sig_res else 0.0
-        verdict = compute_verdict(score, ctx.snapshot, identity_risk=identity_risk)
+        payload_risk = sig_res.get("payload").score if "payload" in sig_res else 0.0
+        verdict = compute_verdict(
+            score,
+            ctx.snapshot,
+            identity_risk=identity_risk,
+            payload_risk=payload_risk,
+        )
         self._id_store.apply_score(ctx.identity, score)
         event = AdiuvareEvent(
             identity=ctx.identity,

@@ -1,10 +1,18 @@
-def compute_verdict(score: float, snap=None, identity_risk: float = 0.0) -> str:
+def compute_verdict(
+    score: float,
+    snap=None,
+    identity_risk: float = 0.0,
+    payload_risk: float = 0.0,
+) -> str:
     if identity_risk >= 0.60:
         score = min(1.0, score + 0.10)
 
     block = snap.block_threshold if snap else 0.80
     throttle = snap.throttle_threshold if snap else 0.55
     flag = snap.flag_threshold if snap else 0.25
+
+    if payload_risk >= 0.85 and score < throttle:
+        return "throttle"
 
     if score >= block:
         return "block"

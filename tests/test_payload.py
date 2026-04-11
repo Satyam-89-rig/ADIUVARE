@@ -31,7 +31,7 @@ def test_payload_marks_sqlish_text():
     )
 
     res = asyncio.run(PayloadSignal().extract(ctx))
-    assert res.score == 0.7
+    assert res.score >= 0.7
 
 
 def test_payload_marks_script_text():
@@ -46,7 +46,7 @@ def test_payload_marks_script_text():
     )
 
     res = asyncio.run(PayloadSignal().extract(ctx))
-    assert res.score == 0.6
+    assert res.score >= 0.6
 
 
 def test_payload_does_not_flag_normal_select_text():
@@ -62,3 +62,33 @@ def test_payload_does_not_flag_normal_select_text():
 
     res = asyncio.run(PayloadSignal().extract(ctx))
     assert res.score == 0.0
+
+
+def test_payload_marks_path_traversal_text():
+    ctx = RequestContext(
+        identity="u1",
+        payload="../../etc/passwd",
+        url="/download",
+        method="GET",
+        headers={},
+        ip="127.0.0.1",
+        endpoint="/download",
+    )
+
+    res = asyncio.run(PayloadSignal().extract(ctx))
+    assert res.score > 0.5
+
+
+def test_payload_decodes_wrapped_script_text():
+    ctx = RequestContext(
+        identity="u1",
+        payload="%3Cscript%3Ealert%281%29%3C%2Fscript%3E",
+        url="/comment",
+        method="POST",
+        headers={},
+        ip="127.0.0.1",
+        endpoint="/comment",
+    )
+
+    res = asyncio.run(PayloadSignal().extract(ctx))
+    assert res.score >= 0.6
