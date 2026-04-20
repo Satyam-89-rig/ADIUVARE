@@ -5,6 +5,7 @@ create table if not exists audit_events (
     score real not null,
     verdict text not null,
     breakdown_json text not null,
+    detail_json text not null default '{}',
     created_at text default current_timestamp
 );
 
@@ -17,6 +18,7 @@ create table if not exists identity_state (
 
 create table if not exists config_history (
     id integer primary key autoincrement,
+    kind text not null default 'patch',
     patch_json text not null,
     created_at text default current_timestamp
 );

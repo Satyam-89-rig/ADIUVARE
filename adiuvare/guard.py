@@ -13,8 +13,10 @@ from .signals.context import ContextSignal
 from .signals.identity import IdentitySignal
 from .signals.ip_rep import IPRepSignal
 from .signals.payload import PayloadSignal
+from .state.audit_log import AuditLog
 from .state.event_stream import UnixSocketEventStream
 from .state.identity_store import IdentityStore
+from .state.persistence import checkpoint_state
 from .state.whitelist import WhitelistStore
 
 
@@ -31,6 +33,9 @@ class Guard:
         self._id_store = IdentityStore()
         self._wl = WhitelistStore()
         self._hard_sigs = list(hard_signals or [])
+        Path(".adiuvare").mkdir(exist_ok=True)
+        self._state_DBpath = Path(self._cfg.runtime.state_db_path)
+        self._audit = AuditLog(self._cfg.runtime.audit_db_path)
         sigs = soft_signals or [
             PayloadSignal(),
             BehaviorSignal(self._id_store),
@@ -41,6 +46,7 @@ class Guard:
         self._pipeline = Pipeline(self._id_store, soft_signals=sigs)
         self._hooks = EventHooks()
         self._stream = UnixSocketEventStream()
+        self._stream.set_command_handler(self.handlestreamcmd)
         self.policies = dict(BUILTIN_POLICIES)
         self._route_cfg: dict[str, Any] = {}
         configure_trackA(wl=self._wl, hard_sigs=self._hard_sigs)
@@ -105,6 +111,7 @@ class Guard:
         event = await self._pipeline.trackB(ctx)
         if event is not None:
             await self._stream.emit(event)
+            self._audit.write(event)
         if event is not None:
             self._hooks.emit_event(event)
         return gate, event
@@ -119,6 +126,58 @@ class Guard:
     @property
     def whitelist(self):
         return self._wl
+
+    def checkpoint(self) -> None:
+        checkpoint_state(self._state_DBpath, self._id_store)
+
+    def runtimesnapshot(self) -> dict[str, Any]:
+        return {
+            "ai_mode": self._cfg_snap.ai_mode,
+            "observe_only": self._cfg_snap.observe_only,
+            "hard_sigs": [sig.name for sig in self._hard_sigs],
+            "whitelist_size": len(self._wl._ids),
+            "recent_events": len(self._stream.recent()),
+            "state_db": str(self._state_DBpath),
+        }
+
+    async def handlestreamcmd(self, name: str, args: dict[str, Any]) -> dict[str, Any]:
+        if name == "get_runtime_snapshot":
+            return self.runtimesnapshot()
+
+        if name == "confirm_block":
+            identity = str(args["identity"])
+            ttl = int(args.get("ttl_secs", 900))
+            self._id_store.set_blocked(identity, ttl)
+            self.checkpoint()
+            return {"ok": True, "identity": identity, "ttl_secs": ttl}
+
+        if name == "unblock_whitelist":
+            identity = str(args["identity"])
+            self._id_store.clear_block(identity)
+            self._wl.add(identity)
+            self.checkpoint()
+            return {"ok": True, "identity": identity}
+
+        if name == "unblock_note":
+            note = str(args.get("note", "")).strip()
+            identity = str(args.get("identity", ""))
+            self._audit.write_patch("unblock_note", {"identity": identity, "note": note})
+            return {"ok": True, "identity": identity}
+
+        if name == "patch_config":
+            changes = args.get("changes") or {}
+            if "ai_mode" in changes:
+                self._cfg.ai.mode = str(changes["ai_mode"])
+                self._cfg.ai.enabled = self._cfg.ai.mode != "off"
+            if "observe_only" in changes:
+                self._cfg.runtime.observe_only = bool(changes["observe_only"])
+            if "block_threshold" in changes:
+                self._cfg.thresholds.block = float(changes["block_threshold"])
+            self._cfg_snap = build_snapshot(self._cfg)
+            self._audit.write_patch("patch_config", changes)
+            return self.runtimesnapshot()
+
+        raise ValueError(f"unknown stream command: {name}")
 
     def policy(self, name: str, **overrides: Any):
         pol = self.policies.get(name)

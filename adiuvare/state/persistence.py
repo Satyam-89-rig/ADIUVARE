@@ -25,3 +25,22 @@ def save_identity_state(db_path: str | Path, id_store: IdentityStore) -> None:
                 (identity, win.seen, win.score_ewma, win.blocked_until),
             )
         conn.commit()
+
+
+def load_identity_state(db_path: str | Path, id_store: IdentityStore) -> None:
+    with sqlite3.connect(db_path) as conn:
+        rows = conn.execute(
+            "select identity, seen, score_ewma, blocked_until from identity_state"
+        ).fetchall()
+
+    for identity, seen, score_ewma, blocked_until in rows:
+        win = id_store.get(identity)
+        win.seen = seen
+        win.score_ewma = score_ewma
+        win.blocked_until = blocked_until
+        id_store.update(identity, win)
+
+
+def checkpoint_state(db_path: str | Path, id_store: IdentityStore) -> None:
+    init_state_db(db_path)
+    save_identity_state(db_path, id_store)

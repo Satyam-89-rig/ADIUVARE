@@ -1,10 +1,12 @@
+import asyncio
 import json
 import sqlite3
 
+from adiuvare import Guard
 from adiuvare.core.models import AdiuvareEvent
 from adiuvare.state.audit_log import AuditLog
 from adiuvare.state.identity_store import IdentityStore
-from adiuvare.state.persistence import init_state_db, save_identity_state
+from adiuvare.state.persistence import checkpoint_state, init_state_db, save_identity_state
 
 
 def test_audit_log_writes_event(tmp_path):
@@ -48,3 +50,78 @@ def test_state_checkpoint_writes_identity_window(tmp_path):
         ).fetchone()
 
     assert row == ("u1", 3, 0.42)
+
+
+def test_audit_log_query_helpers_work(tmp_path):
+    db_path = tmp_path / "audit.db"
+    log = AuditLog(db_path)
+    first = AdiuvareEvent(
+        identity="u1",
+        endpoint="/login",
+        score=0.42,
+        verdict="flag",
+        breakdown={"payload": 0.28},
+        detail={"ai": {"verdict": "suspicious"}},
+    )
+    second = AdiuvareEvent(
+        identity="u2",
+        endpoint="/pay",
+        score=0.88,
+        verdict="block",
+        breakdown={"payload": 0.4},
+    )
+    log.write(first)
+    log.write(second)
+
+    recent = log.recent()
+    mine = log.by_identity("u1")
+    assert recent[0]["identity"] == "u2"
+    assert mine[0]["detail"]["ai"]["verdict"] == "suspicious"
+
+
+def test_checkpoint_state_helper_runs(tmp_path):
+    db_path = tmp_path / "audit.db"
+    store = IdentityStore()
+    store.bump("u1")
+    checkpoint_state(db_path, store)
+
+    with sqlite3.connect(db_path) as conn:
+        row = conn.execute("select identity, seen from identity_state").fetchone()
+
+    assert row == ("u1", 1)
+
+
+def test_guard_stream_command_path_updates_runtime_state(tmp_path):
+    guard = Guard()
+    guard._audit = AuditLog(tmp_path / "audit.db")
+    guard._state_DBpath = tmp_path / "state.db"
+
+    snap = asyncio.run(guard.event_stream.command("get_runtime_snapshot", {}))
+    assert "ai_mode" in snap
+
+    block = asyncio.run(
+        guard.event_stream.command(
+            "confirm_block",
+            {"identity": "u1", "ttl_secs": 60},
+        )
+    )
+    assert block["ok"] is True
+    assert guard._id_store.is_blocked("u1") is True
+
+    allow = asyncio.run(
+        guard.event_stream.command(
+            "unblock_whitelist",
+            {"identity": "u1"},
+        )
+    )
+    assert allow["ok"] is True
+    assert guard.whitelist.allows("u1") is True
+
+    patched = asyncio.run(
+        guard.event_stream.command(
+            "patch_config",
+            {"changes": {"ai_mode": "assist", "observe_only": True}},
+        )
+    )
+    assert patched["ai_mode"] == "assist"
+    assert patched["observe_only"] is True
