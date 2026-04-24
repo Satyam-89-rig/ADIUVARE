@@ -96,6 +96,14 @@ async def test_events_filter_reduces_rows(app):
 
 
 @pytest.mark.asyncio
+async def test_slash_focuses_events_filter(app):
+    async with app.run_test() as pilot:
+        await pilot.press("2")
+        await pilot.press("/")
+        assert app.focused is app.query_one("#events-identity-filter")
+
+
+@pytest.mark.asyncio
 async def test_config_save_updates_yaml(app):
     async with app.run_test() as pilot:
         await pilot.press("3")
@@ -127,3 +135,11 @@ async def test_analyst_ask_updates_output(app):
         await pilot.press("w", "h", "o", "enter")
         output = str(app.query_one("#ask-output").content)
         assert "lead identity: user:lead" in output
+
+
+@pytest.mark.asyncio
+async def test_slash_focuses_audit_filter(app):
+    async with app.run_test() as pilot:
+        await pilot.press("6")
+        await pilot.press("/")
+        assert app.focused is app.query_one("#audit-identity-filter")

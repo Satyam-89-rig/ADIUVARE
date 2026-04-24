@@ -24,6 +24,7 @@ class WorkspaceView(Container):
 
     shortcut_hints = "[1-6] tabs  [q] quit"
     primary_id: str | None = None
+    search_id: str | None = None
 
     def refresh_view(self) -> None:
         return
@@ -39,6 +40,14 @@ class WorkspaceView(Container):
             return
         try:
             self.app.set_focus(self.query_one(f"#{self.primary_id}"))
+        except Exception:
+            return
+
+    def focus_search(self) -> None:
+        if not self.search_id:
+            return
+        try:
+            self.app.set_focus(self.query_one(f"#{self.search_id}"))
         except Exception:
             return
 
@@ -59,4 +68,3 @@ def decision_icon(verdict: str) -> str:
         "throttle": "!",
         "block": "x",
     }.get(verdict, "?")
-
