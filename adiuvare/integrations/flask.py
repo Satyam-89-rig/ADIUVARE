@@ -14,13 +14,15 @@ class AdiuvareMiddleware:
     def __call__(self, environ, start_response):
         req = Request(environ)
         body = req.get_data(cache=True, as_text=True)
+        raw_ip = req.headers.get("x-forwarded-for", "")
+        ip = raw_ip.split(",", 1)[0].strip() or req.remote_addr or "127.0.0.1"
         ctx = build_http_ctx(
             identity=req.headers.get("x-user-id", req.remote_addr or "anon"),
             payload=body or None,
             url=req.path,
             method=req.method,
             headers=dict(req.headers),
-            ip=req.remote_addr or "127.0.0.1",
+            ip=ip,
             endpoint=req.path,
             snapshot=self._guard._cfg_snap,
         )

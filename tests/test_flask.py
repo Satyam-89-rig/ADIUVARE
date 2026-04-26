@@ -50,3 +50,25 @@ def test_guard_from_config_builds_flask_guard(tmp_path):
     res = client.get("/ping", headers={"User-Agent": "Mozilla/5.0", "x-user-id": "u2"})
     assert res.status_code == 200
     assert guard.config.runtime.observe_only is True
+
+
+def test_flask_blocks_banned_forwarded_ip():
+    app = Flask(__name__)
+    guard = Guard()
+    guard.whitelist.ban_ip("203.0.113.4")
+    guard.use(app, framework="flask")
+
+    @app.get("/ping")
+    def ping():
+        return jsonify(ok=True)
+
+    client = app.test_client()
+    res = client.get(
+        "/ping",
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "x-user-id": "u3",
+            "x-forwarded-for": "203.0.113.4",
+        },
+    )
+    assert res.status_code == 403

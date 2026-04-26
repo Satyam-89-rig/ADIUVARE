@@ -136,6 +136,28 @@ def test_fastapi_returns_hold_for_admin_post():
     assert res.status_code == 202
 
 
+def test_fastapi_blocks_banned_forwarded_ip():
+    app = FastAPI()
+    guard = Guard()
+    guard.whitelist.ban_ip("203.0.113.4")
+    guard.use(app, framework="fastapi")
+
+    @app.get("/ping")
+    async def ping():
+        return {"ok": True}
+
+    client = TestClient(app)
+    res = client.get(
+        "/ping",
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "x-user-id": "u6",
+            "x-forwarded-for": "203.0.113.4",
+        },
+    )
+    assert res.status_code == 403
+
+
 def test_guard_auto_attaches_fastapi():
     app = FastAPI()
     guard = Guard.auto(app)

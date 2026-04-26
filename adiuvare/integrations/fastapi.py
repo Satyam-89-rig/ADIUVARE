@@ -17,13 +17,17 @@ class AdiuvareMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         body = await request.body()
+        raw_ip = request.headers.get("x-forwarded-for", "")
+        ip = raw_ip.split(",", 1)[0].strip()
+        if not ip:
+            ip = request.client.host if request.client else "127.0.0.1"
         ctx = build_http_ctx(
             identity=request.headers.get("x-user-id", request.client.host if request.client else "anon"),
             payload=body.decode() if body else None,
             url=str(request.url.path),
             method=request.method,
             headers=dict(request.headers),
-            ip=request.client.host if request.client else "127.0.0.1",
+            ip=ip,
             endpoint=request.url.path,
             snapshot=self._guard._cfg_snap,
         )
