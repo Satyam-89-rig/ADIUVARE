@@ -1,8 +1,9 @@
 import pytest
+import sqlalchemy as sa
 
 from adiuvare import Guard
 from adiuvare.integrations.django_sink import wrap_query
-from adiuvare.integrations.sqlalchemy import AdiuvareBlockError, check_statement
+from adiuvare.integrations.sqlalchemy import AdiuvareBlockError, _sink_mode, attach_sink, check_statement
 
 
 def test_sqlalchemy_sink_can_block_inline():
@@ -39,3 +40,17 @@ def test_django_sink_wrapper_uses_same_check():
     out = wrapped("select * from users", sink_mode="async", identity="u1")
     assert out == "ok"
     assert seen == ["select * from users"]
+
+
+def test_attach_sink_hooks_real_engine_execute():
+    guard = Guard()
+    engine = sa.create_engine("sqlite://", future=True)
+    attach_sink(engine, guard)
+    token = _sink_mode.set("inline")
+
+    try:
+        with pytest.raises(AdiuvareBlockError):
+            with engine.connect() as conn:
+                conn.execute(sa.text("select * from sqlite_master where name='' or 1=1"))
+    finally:
+        _sink_mode.reset(token)

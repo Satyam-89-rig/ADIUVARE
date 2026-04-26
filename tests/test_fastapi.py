@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from adiuvare import Guard
-from adiuvare.core.models import RequestContext, SignalResult
+from adiuvare.core.models import AdiuvareEvent, RequestContext, SignalResult
 from adiuvare.signals.base import SoftSignal
 
 
@@ -73,6 +73,49 @@ def test_fastapi_runs_trackB_in_background():
     assert seen == []
     time.sleep(0.3)
     assert seen == ["allow"]
+
+
+def test_fastapi_background_trackB_writes_audit_and_stream(monkeypatch):
+    app = FastAPI()
+    guard = Guard()
+    seen = {"audit": [], "stream": []}
+    event = AdiuvareEvent(
+        identity="u5",
+        endpoint="/ping",
+        score=0.0,
+        verdict="allow",
+        breakdown={},
+        detail={},
+    )
+
+    async def fake_trackB(_ctx):
+        return event
+
+    async def fake_emit(item):
+        seen["stream"].append(item.verdict)
+
+    def fake_write(item):
+        seen["audit"].append(item.verdict)
+
+    monkeypatch.setattr(guard._pipeline, "trackB", fake_trackB)
+    monkeypatch.setattr(guard.event_stream, "emit", fake_emit)
+    monkeypatch.setattr(guard._audit, "write", fake_write)
+    guard.use(app, framework="fastapi")
+
+    @app.get("/ping")
+    async def ping():
+        return {"ok": True}
+
+    client = TestClient(app)
+    res = client.get("/ping", headers={"User-Agent": "Mozilla/5.0", "x-user-id": "u5"})
+    assert res.status_code == 200
+
+    stop = time.time() + 0.3
+    while time.time() < stop and (not seen["audit"] or not seen["stream"]):
+        time.sleep(0.01)
+
+    assert seen["audit"] == ["allow"]
+    assert seen["stream"] == ["allow"]
 
 
 def test_fastapi_returns_hold_for_admin_post():

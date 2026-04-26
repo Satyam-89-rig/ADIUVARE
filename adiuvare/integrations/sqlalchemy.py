@@ -1,4 +1,10 @@
+from contextvars import ContextVar
+
+from sqlalchemy import event
+
 from ..vendor import detect_sqli, normalize
+
+_sink_mode: ContextVar[str] = ContextVar("adiuvare_sink_mode", default="async")
 
 
 class AdiuvareBlockError(Exception):
@@ -31,4 +37,15 @@ def check_statement(
 
 
 def attach_sink(engine, guard) -> None:
+    if getattr(engine, "_adiuvare_guard", None) is guard:
+        return
+
     engine._adiuvare_guard = guard
+
+    @event.listens_for(engine, "before_cursor_execute")
+    def _watch(conn, cursor, statement, params, ctx, many):
+        mode = _sink_mode.get()
+        if mode == "off":
+            return
+
+        check_statement(guard, statement, sink_mode=mode)

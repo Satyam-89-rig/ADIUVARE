@@ -46,4 +46,6 @@ class AdiuvareMiddleware(BaseHTTPMiddleware):
     async def _run_trackB(self, ctx) -> None:
         event = await self._guard._pipeline.trackB(ctx)
         if event is not None:
+            await self._guard.event_stream.emit(event)
+            self._guard._audit.write(event)
             self._guard.hooks.emit_event(event)
