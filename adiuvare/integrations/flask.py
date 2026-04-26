@@ -3,7 +3,7 @@ import json
 
 from werkzeug.wrappers import Request, Response
 
-from . import build_http_ctx
+from . import build_http_ctx, ctx_payload
 
 
 class AdiuvareMiddleware:
@@ -18,7 +18,7 @@ class AdiuvareMiddleware:
         ip = raw_ip.split(",", 1)[0].strip() or req.remote_addr or "127.0.0.1"
         ctx = build_http_ctx(
             identity=req.headers.get("x-user-id", req.remote_addr or "anon"),
-            payload=body or None,
+            payload=ctx_payload(body or None, req.query_string.decode(errors="replace")),
             url=req.path,
             method=req.method,
             headers=dict(req.headers),
@@ -35,6 +35,22 @@ class AdiuvareMiddleware:
                 content_type="application/json",
             )
             return res(environ, start_response)
+
+        if event is not None:
+            if event.verdict == "block":
+                res = Response(
+                    json.dumps({"detail": "blocked"}),
+                    status=403,
+                    content_type="application/json",
+                )
+                return res(environ, start_response)
+            if event.verdict == "throttle":
+                res = Response(
+                    json.dumps({"detail": "throttled"}),
+                    status=429,
+                    content_type="application/json",
+                )
+                return res(environ, start_response)
 
         environ["adiuvare.event"] = event
         return self._app(environ, start_response)

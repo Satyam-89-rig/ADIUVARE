@@ -158,6 +158,42 @@ def test_fastapi_blocks_banned_forwarded_ip():
     assert res.status_code == 403
 
 
+def test_fastapi_query_sqli_does_not_stay_open():
+    app = FastAPI()
+    guard = Guard()
+    guard.use(app, framework="fastapi")
+
+    @app.get("/search")
+    async def search():
+        return {"ok": True}
+
+    client = TestClient(app)
+    res = client.get(
+        "/search",
+        params={"q": "' UNION SELECT password FROM users--"},
+        headers={"User-Agent": "Mozilla/5.0", "x-user-id": "u7"},
+    )
+    assert res.status_code in {403, 429}
+
+
+def test_fastapi_body_sqli_does_not_stay_open():
+    app = FastAPI()
+    guard = Guard()
+    guard.use(app, framework="fastapi")
+
+    @app.post("/billing")
+    async def billing():
+        return {"ok": True}
+
+    client = TestClient(app)
+    res = client.post(
+        "/billing",
+        content="select * from users where id = '' or 1=1",
+        headers={"User-Agent": "curl/8.0", "x-user-id": "u8"},
+    )
+    assert res.status_code in {403, 429}
+
+
 def test_guard_auto_attaches_fastapi():
     app = FastAPI()
     guard = Guard.auto(app)

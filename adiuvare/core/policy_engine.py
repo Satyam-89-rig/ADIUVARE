@@ -45,6 +45,9 @@ def reach_verdict(
     elif identity_risk >= 0.60:
         verdict = _raise_to(verdict, "throttle")
 
+    if payload_risk >= 0.60 and verdict == "flag":
+        verdict = _raise_to(verdict, "throttle")
+
     if ai_mode == "critical" and ai_verdict == "malicious" and ai_conf >= 0.60:
         verdict = _raise_to(verdict, "block")
     elif ai_mode in {"assist", "critical"} and ai_verdict == "suspicious" and ai_conf >= 0.50:

@@ -72,3 +72,40 @@ def test_flask_blocks_banned_forwarded_ip():
         },
     )
     assert res.status_code == 403
+
+
+def test_flask_query_sqli_does_not_stay_open():
+    app = Flask(__name__)
+    guard = Guard()
+    guard.use(app, framework="flask")
+
+    @app.get("/search")
+    def search():
+        return jsonify(ok=True)
+
+    client = app.test_client()
+    res = client.get(
+        "/search",
+        query_string={"q": "' UNION SELECT password FROM users--"},
+        headers={"User-Agent": "Mozilla/5.0", "x-user-id": "u4"},
+    )
+    assert res.status_code in {403, 429}
+
+
+def test_flask_body_sqli_does_not_stay_open():
+    app = Flask(__name__)
+    guard = Guard()
+    guard.use(app, framework="flask")
+
+    @app.post("/billing")
+    def billing():
+        return jsonify(ok=True)
+
+    client = app.test_client()
+    res = client.post(
+        "/billing",
+        data=b"select * from users where id = '' or 1=1",
+        content_type="text/plain",
+        headers={"User-Agent": "curl/8.0", "x-user-id": "u5"},
+    )
+    assert res.status_code in {403, 429}

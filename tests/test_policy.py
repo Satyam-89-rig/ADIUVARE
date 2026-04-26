@@ -72,6 +72,19 @@ def test_policy_engine_raises_floor_for_strong_payload():
     assert out.verdict == "throttle"
 
 
+def test_policy_engine_pushes_flag_band_payload_to_throttle():
+    snap = ConfigSnapshot(
+        payload_weight=0.4,
+        behavior_weight=0.35,
+        identity_weight=0.25,
+        flag_threshold=0.25,
+        throttle_threshold=0.55,
+        block_threshold=0.8,
+    )
+    out = reach_verdict(0.32, snap=snap, payload_risk=0.80)
+    assert out.verdict == "throttle"
+
+
 def test_policy_engine_identity_escalates_to_throttle():
     snap = ConfigSnapshot(
         payload_weight=0.4,

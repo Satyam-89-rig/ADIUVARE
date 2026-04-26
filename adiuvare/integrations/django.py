@@ -1,6 +1,6 @@
 import asyncio
 
-from . import build_http_ctx
+from . import build_http_ctx, ctx_payload
 
 
 class JsonResponse:
@@ -32,7 +32,7 @@ class AdiuvareMiddleware:
 
         ctx = build_http_ctx(
             identity=identity,
-            payload=body,
+            payload=ctx_payload(body, meta.get("QUERY_STRING", "")),
             url=path,
             method=method,
             headers=headers,
@@ -43,6 +43,12 @@ class AdiuvareMiddleware:
         gate, event = asyncio.run(self._guard.inspect(ctx))
         if not gate.passed:
             return JsonResponse({"detail": gate.block_reason or "blocked"}, status=gate.status_code)
+
+        if event is not None:
+            if event.verdict == "block":
+                return JsonResponse({"detail": "blocked"}, status=403)
+            if event.verdict == "throttle":
+                return JsonResponse({"detail": "throttled"}, status=429)
 
         request.adiuvare_event = event
         return self._get_response(request)
