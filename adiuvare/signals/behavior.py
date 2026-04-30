@@ -1,9 +1,18 @@
-from ua_parser import user_agent_parser
+from functools import lru_cache
 
 from ..core.gate import trackA_cap
 from ..core.models import RequestContext, SignalResult
 from ..state.identity_store import IdentityStore
 from .base import SoftSignal
+
+
+@lru_cache(maxsize=1)
+def _load_ua_parser():
+    try:
+        from ua_parser import user_agent_parser
+    except Exception:
+        return None
+    return user_agent_parser
 
 
 class BehaviorSignal(SoftSignal):
@@ -23,12 +32,20 @@ class BehaviorSignal(SoftSignal):
         if not ua:
             return 0.35
 
-        parsed = user_agent_parser.ParseUserAgent(ua)
-        ua_name = (parsed.get("family") or "").lower()
-        if "headlesschrome" in ua_name or "phantomjs" in ua_name:
+        low = ua.lower()
+        if "headlesschrome" in low or "phantomjs" in low:
             return 0.65
 
-        low = ua.lower()
+        parser = _load_ua_parser()
+        if parser is not None:
+            try:
+                parsed = parser.ParseUserAgent(ua)
+            except Exception:
+                parsed = {}
+            ua_name = str(parsed.get("family") or "").lower()
+            if "headlesschrome" in ua_name or "phantomjs" in ua_name:
+                return 0.65
+
         bad = {
             "python-requests",
             "curl",
