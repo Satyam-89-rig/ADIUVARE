@@ -6,7 +6,14 @@ from adiuvare import Guard
 from adiuvare.core.models import AdiuvareEvent
 from adiuvare.state.audit_log import AuditLog
 from adiuvare.state.identity_store import IdentityStore
-from adiuvare.state.persistence import checkpoint_state, init_state_db, save_identity_state
+from adiuvare.state.persistence import (
+    checkpoint_state,
+    init_state_db,
+    load_whitelist_state,
+    save_identity_state,
+    save_whitelist_state,
+)
+from adiuvare.state.whitelist import WhitelistStore
 
 
 def test_audit_log_writes_event(tmp_path):
@@ -91,6 +98,24 @@ def test_checkpoint_state_helper_runs(tmp_path):
     assert row == ("u1", 1)
 
 
+def test_whitelist_state_round_trip(tmp_path):
+    db_path = tmp_path / "state.db"
+    wl = WhitelistStore()
+    wl.add("u1")
+    wl.add("u2")
+    wl.ban_ip("203.0.113.4")
+
+    init_state_db(db_path)
+    save_whitelist_state(db_path, wl)
+
+    loaded = WhitelistStore()
+    load_whitelist_state(db_path, loaded)
+
+    assert loaded.allows("u1") is True
+    assert loaded.allows("u2") is True
+    assert loaded.ip_blocked("203.0.113.4") is True
+
+
 def test_guard_stream_command_path_updates_runtime_state(tmp_path):
     guard = Guard()
     guard._audit = AuditLog(tmp_path / "audit.db")
@@ -146,6 +171,37 @@ def test_guard_stream_command_path_updates_runtime_state(tmp_path):
     assert patched["ai_mode"] == "assist"
     assert patched["observe_only"] is True
     assert patched["ai_enabled"] is True
+
+
+def test_guard_startup_loads_persisted_operator_state(tmp_path):
+    first = Guard()
+    first._audit = AuditLog(tmp_path / "audit.db")
+    first._state_DBpath = tmp_path / "state.db"
+    asyncio.run(
+        first.event_stream.command(
+            "unblock_whitelist",
+            {"identity": "u1"},
+        )
+    )
+    asyncio.run(
+        first.event_stream.command(
+            "ban_ip",
+            {"ip": "203.0.113.4"},
+        )
+    )
+
+    async def run():
+        second = Guard()
+        second._audit = AuditLog(tmp_path / "audit.db")
+        second._state_DBpath = tmp_path / "state.db"
+        await second.startbgtasks()
+        try:
+            assert second.whitelist.allows("u1") is True
+            assert second.whitelist.ip_blocked("203.0.113.4") is True
+        finally:
+            await second.shutdown()
+
+    asyncio.run(run())
 
 
 def test_guard_analysis_commands_return_report_and_answer(tmp_path):

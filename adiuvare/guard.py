@@ -27,7 +27,12 @@ from .signals.payload import PayloadSignal
 from .state.audit_log import AuditLog
 from .state.event_stream import RedisEventStream, UnixSocketEventStream
 from .state.identity_store import IdentityStore, ThreadSafeIdentityStore
-from .state.persistence import checkpoint_state, load_identity_state, start_checkpoint_loop
+from .state.persistence import (
+    checkpoint_state,
+    load_identity_state,
+    load_whitelist_state,
+    start_checkpoint_loop,
+)
 from .state.whitelist import WhitelistStore
 
 
@@ -177,16 +182,17 @@ class Guard:
         self._id_store.apply_score(who, 0.85)
 
     def checkpoint(self) -> None:
-        checkpoint_state(self._state_DBpath, self._id_store)
+        checkpoint_state(self._state_DBpath, self._id_store, self._wl)
 
     async def startbgtasks(self) -> None:
         if self._bg_started:
             return
 
         load_identity_state(self._state_DBpath, self._id_store)
+        load_whitelist_state(self._state_DBpath, self._wl)
         await self._stream.start()
         self._bg_task = asyncio.create_task(
-            start_checkpoint_loop(self._state_DBpath, self._id_store)
+            start_checkpoint_loop(self._state_DBpath, self._id_store, self._wl)
         )
         self._bg_started = True
 
@@ -299,6 +305,7 @@ class Guard:
             ip = str(args["ip"])
             self._wl.ban_ip(ip)
             self._audit.write_patch("ban_ip", {"ip": ip})
+            self.checkpoint()
             return {
                 "ok": True,
                 "ip": ip,
@@ -310,6 +317,7 @@ class Guard:
             ip = str(args["ip"])
             self._wl.unban_ip(ip)
             self._audit.write_patch("unban_ip", {"ip": ip})
+            self.checkpoint()
             return {
                 "ok": True,
                 "ip": ip,

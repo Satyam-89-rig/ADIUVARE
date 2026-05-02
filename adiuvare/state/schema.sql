@@ -16,6 +16,14 @@ create table if not exists identity_state (
     blocked_until real not null
 );
 
+create table if not exists whitelist_state (
+    identity text primary key
+);
+
+create table if not exists banned_ip_state (
+    ip text primary key
+);
+
 create table if not exists config_history (
     id integer primary key autoincrement,
     kind text not null default 'patch',

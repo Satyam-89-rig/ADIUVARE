@@ -9,6 +9,9 @@ class WhitelistStore:
     def allows(self, identity: str) -> bool:
         return identity in self._ids
 
+    def identities(self) -> set[str]:
+        return set(self._ids)
+
     def ban_ip(self, ip: str) -> None:
         self._banned_ips.add(ip)
 
@@ -17,3 +20,6 @@ class WhitelistStore:
 
     def ip_blocked(self, ip: str) -> bool:
         return ip in self._banned_ips
+
+    def banned_ips(self) -> set[str]:
+        return set(self._banned_ips)
