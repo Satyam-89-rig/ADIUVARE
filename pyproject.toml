@@ -21,6 +21,7 @@ dev = [
   "flask",
   "django",
   "sqlalchemy",
+  "ruff",
 ]
 tui = [
   "rich",

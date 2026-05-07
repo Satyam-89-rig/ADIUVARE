@@ -1,0 +1,20 @@
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "README.md"
+          - "CONTRIBUTING.md"
+          - "SECURITY.md"
+          - "CODE_OF_CONDUCT.md"
+          - "docs/**"
+          - ".github/ISSUE_TEMPLATE/**"
+          - ".github/PULL_REQUEST_TEMPLATE.md"
+
+enhancement:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "adiuvare/**"
+          - "cli.py"
+          - "pyproject.toml"
+          - "scripts/**"
+          - ".github/workflows/**"
+          - ".github/dependabot.yml"
