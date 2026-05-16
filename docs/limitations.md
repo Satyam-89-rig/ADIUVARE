@@ -57,11 +57,18 @@ One important consequence today:
 - a disconnected TUI can still show cached data and control-plane history, but
   that is not the same thing as mutating live runtime state
 
+The header bar shows `connected` or `offline` at all times. All seven screens
+remain open when disconnected, but state-changing actions taken offline only
+write a local audit record and do not change runtime state. The TUI is
+strongest when attached to a running runtime.
+
+For the full breakdown of which screens work offline, which actions require a
+live runtime, and how the UI signals connection state, see
+[TUI](operator/tui.md).
+
 This is an area to tighten further. The long-term goal is to make the offline
 story more explicit, either by disabling actions that cannot be applied for
 real or by giving local single-instance mode a true local mutation path.
-
-That means the TUI is strongest when attached to a running runtime.
 
 ## The TUI is still a bounded operator console
 
