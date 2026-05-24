@@ -7,7 +7,17 @@ from textual.widgets import DataTable, Static
 
 from ...signals.context import ContextSignal
 from ...signals.ip_rep import IPRepSignal
-from ..workspace import PALETTE, WorkspaceView, render_signal_bar, sensitivity_color
+from ..workspace import (
+    FOOTER_READY,
+    PALETTE,
+    SHORTCUT_AUTO_REFRESH,
+    SHORTCUT_NAVIGATE,
+    WorkspaceView,
+    format_shortcut,
+    join_shortcuts,
+    render_signal_bar,
+    sensitivity_color,
+)
 
 if TYPE_CHECKING:
     from ..app import AdiuvareApp
@@ -29,7 +39,11 @@ SIGNAL_DESCRIPTIONS = {
 
 
 class SignalsScreen(WorkspaceView):
-    shortcut_hints = "[1-7] tabs  [up/down] navigate  [Enter] select signal  [auto 3s]"
+    shortcut_hints = join_shortcuts(
+        SHORTCUT_NAVIGATE,
+        format_shortcut("Enter", "select"),
+        SHORTCUT_AUTO_REFRESH,
+    )
     primary_id = "signals-table"
 
     def __init__(self, *args, **kwargs) -> None:
@@ -132,7 +146,7 @@ class SignalsScreen(WorkspaceView):
         self._render_top_contrib(rows)
 
     def footer_status(self) -> str:
-        return "Keyboard shortcuts active"
+        return FOOTER_READY
 
     def _render_detail(self) -> None:
         name = self._selected_signal

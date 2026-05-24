@@ -6,10 +6,13 @@ from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Input, Static
 
 from ..workspace import (
+    FOOTER_READY,
     PALETTE,
     WorkspaceView,
     decision_color,
     decision_icon,
+    format_shortcut,
+    join_shortcuts,
     render_decision_bar,
     render_signal_bar,
     styled_separator,
@@ -20,7 +23,12 @@ if TYPE_CHECKING:
 
 
 class AIScreen(WorkspaceView):
-    shortcut_hints = "[1-7] tabs  [a] analyze  [k] ask  [d] 7-day  [0] 30-day"
+    shortcut_hints = join_shortcuts(
+        format_shortcut("a", "analyze"),
+        format_shortcut("k", "ask"),
+        format_shortcut("d", "7-day"),
+        format_shortcut("0", "30-day"),
+    )
     primary_id = "ai-7day-btn"
 
     BINDINGS = [
@@ -125,7 +133,7 @@ class AIScreen(WorkspaceView):
     def footer_status(self) -> str:
         if self._last_report:
             return f"Last report source: {self._last_report.get('source', 'unknown')}"
-        return "Keyboard shortcuts active"
+        return FOOTER_READY
 
     def _sync_subtabs(self) -> None:
         analyze_button = self.query_one("#ai-sub-analyze", Button)

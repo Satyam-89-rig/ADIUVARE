@@ -7,10 +7,14 @@ from textual.widgets import Static
 
 from ..widgets.risk_stream import RiskStream
 from ..workspace import (
+    FOOTER_READY,
     PALETTE,
     SIGNAL_COLORS,
+    SHORTCUT_AUTO_REFRESH,
+    SHORTCUT_SCROLL,
     WorkspaceView,
     decision_color,
+    join_shortcuts,
     render_decision_bar,
     render_signal_bar,
 )
@@ -20,7 +24,7 @@ if TYPE_CHECKING:
 
 
 class MonitorScreen(WorkspaceView):
-    shortcut_hints = "[1-7] tabs  [up/down] scroll  [auto 3s]  [q] quit"
+    shortcut_hints = join_shortcuts(SHORTCUT_SCROLL, SHORTCUT_AUTO_REFRESH)
     primary_id = "monitor-stream"
 
     def compose(self) -> ComposeResult:
@@ -53,7 +57,7 @@ class MonitorScreen(WorkspaceView):
         self._render_hot_endpoints(all_rows)
 
     def footer_status(self) -> str:
-        return "Keyboard shortcuts active"
+        return FOOTER_READY
 
     def _render_system_status(self, total: int) -> None:
         snap = self._app().runtime_snapshot()

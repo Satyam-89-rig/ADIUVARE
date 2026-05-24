@@ -21,7 +21,7 @@ from .screens.config import ConfigScreen
 from .screens.events import EventsScreen
 from .screens.monitor import MonitorScreen
 from .screens.signals import SignalsScreen
-from .workspace import PALETTE, WorkspaceView
+from .workspace import FOOTER_READY, PALETTE, WorkspaceView
 
 
 class AdiuvareApp(App[None]):
@@ -91,7 +91,7 @@ class AdiuvareApp(App[None]):
             with Horizontal(id="app-footer"):
                 yield Static("Adiuvare WAF console", id="footer-left")
                 yield Static("", id="footer-link-status")
-                yield Static("Keyboard shortcuts active", id="footer-right")
+                yield Static(FOOTER_READY, id="footer-right")
 
     def on_mount(self) -> None:
         self._sync_view()

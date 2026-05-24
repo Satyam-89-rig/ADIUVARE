@@ -5,7 +5,14 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Input, Select, Static
 
-from ..workspace import PALETTE, WorkspaceView
+from ..workspace import (
+    FOOTER_READY,
+    PALETTE,
+    SHORTCUT_NAVIGATE,
+    WorkspaceView,
+    format_shortcut,
+    join_shortcuts,
+)
 
 if TYPE_CHECKING:
     from ..app import AdiuvareApp
@@ -18,7 +25,12 @@ STRICTNESS_OPTIONS = [("public", "public"), ("internal", "internal"), ("critical
 
 
 class ConfigScreen(WorkspaceView):
-    shortcut_hints = "[1-7] tabs  [s] save  [t] toggle observe  [Tab] next field"
+    shortcut_hints = join_shortcuts(
+        format_shortcut("s", "save"),
+        format_shortcut("t", "toggle mode"),
+        format_shortcut("Tab", "next field"),
+        SHORTCUT_NAVIGATE,
+    )
     primary_id = "cfg-mode-display"
 
     BINDINGS = [
@@ -166,7 +178,7 @@ class ConfigScreen(WorkspaceView):
 
         self._app().save_config(changes)
         self.refresh_view()
-        self._app().set_footer_status("Saved")
+        self._app().set_footer_status("saved")
 
     def action_toggle_mode(self) -> None:
         self._observe = not self._observe
@@ -204,7 +216,7 @@ class ConfigScreen(WorkspaceView):
         self._update_redis_visibility()
 
     def footer_status(self) -> str:
-        return "Tab/up/down to navigate - [S] save - [T] toggle mode"
+        return FOOTER_READY
 
     def _render_mode(self) -> None:
         mode_text = "observe" if self._observe else "enforce"
