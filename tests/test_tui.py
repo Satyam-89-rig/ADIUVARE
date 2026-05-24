@@ -473,3 +473,81 @@ async def test_setup_wizard_uses_selects_and_writes_full_config(tmp_path):
     assert "thresholds:" in saved
     assert "framework: fastapi" in saved
     assert "mode: assist" in saved
+
+
+def test_footer_shortcut_helpers():
+    from adiuvare.tui.workspace import (
+        FOOTER_READY,
+        footer_selected,
+        format_shortcut,
+        join_shortcuts,
+    )
+
+    assert format_shortcut("f", "filter") == "[f] filter"
+    assert join_shortcuts("[a]", "", "[b]") == "[a]  [b]"
+    assert footer_selected("user:1") == "Selected: user:1"
+    assert FOOTER_READY == "Keyboard shortcuts active"
+
+
+def test_tui_screen_shortcut_summaries_include_global_hints():
+    from adiuvare.tui.screens.ai import AIScreen
+    from adiuvare.tui.screens.audit import AuditScreen
+    from adiuvare.tui.screens.changes import ChangesScreen
+    from adiuvare.tui.screens.config import ConfigScreen
+    from adiuvare.tui.screens.events import EventsScreen
+    from adiuvare.tui.screens.monitor import MonitorScreen
+    from adiuvare.tui.screens.signals import SignalsScreen
+    from adiuvare.tui.workspace import SHORTCUT_QUIT, SHORTCUT_TABS
+
+    screens = (
+        MonitorScreen,
+        EventsScreen,
+        ConfigScreen,
+        SignalsScreen,
+        AIScreen,
+        AuditScreen,
+        ChangesScreen,
+    )
+    for screen_cls in screens:
+        summary = screen_cls().shortcut_summary()
+        assert SHORTCUT_TABS in summary
+        assert SHORTCUT_QUIT in summary
+
+    events_summary = EventsScreen().shortcut_summary()
+    assert "[f] filter" in events_summary
+    assert "[c] confirm" in events_summary
+    assert "[up/down] navigate" in events_summary
+
+    monitor_summary = MonitorScreen().shortcut_summary()
+    assert "[up/down] scroll" in monitor_summary
+    assert "[auto 3s]" in monitor_summary
+
+
+@pytest.mark.asyncio
+async def test_tui_footer_shows_consistent_shortcuts_and_status(app):
+    from adiuvare.tui.workspace import FOOTER_READY
+
+    async with app.run_test() as pilot:
+        footer_left = app.query_one("#footer-left", Static)
+        footer_right = app.query_one("#footer-right", Static)
+
+        assert "[1-7] tabs" in str(footer_left.render())
+        assert "[q] quit" in str(footer_left.render())
+        assert "[up/down] scroll" in str(footer_left.render())
+        assert FOOTER_READY in str(footer_right.render())
+
+        await pilot.press("2")
+        await pilot.pause()
+
+        events_left = str(footer_left.render())
+        assert "[f] filter" in events_left
+        assert "[e] export" in events_left
+        assert "[up/down] navigate" in events_left
+
+        await pilot.press("3")
+        await pilot.pause()
+
+        config_left = str(footer_left.render())
+        assert "[s] save" in config_left
+        assert "[t] toggle mode" in config_left
+        assert FOOTER_READY in str(footer_right.render())
