@@ -7,14 +7,29 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, DataTable, Input, Static
 
-from ..workspace import PALETTE, WorkspaceView, styled_label, styled_separator
+from ..workspace import (
+    FOOTER_READY,
+    PALETTE,
+    SHORTCUT_AUTO_REFRESH,
+    SHORTCUT_NAVIGATE,
+    WorkspaceView,
+    footer_selected,
+    format_shortcut,
+    join_shortcuts,
+    styled_label,
+    styled_separator,
+)
 
 if TYPE_CHECKING:
     from ..app import AdiuvareApp
 
 
 class ChangesScreen(WorkspaceView):
-    shortcut_hints = "[1-7] tabs  [f] filter  [auto 3s]  [up/down] navigate"
+    shortcut_hints = join_shortcuts(
+        format_shortcut("f", "filter"),
+        SHORTCUT_NAVIGATE,
+        SHORTCUT_AUTO_REFRESH,
+    )
     primary_id = "changes-table"
     search_id = "changes-search-filter"
 
@@ -117,8 +132,8 @@ class ChangesScreen(WorkspaceView):
 
     def footer_status(self) -> str:
         if self._selected:
-            return f"Selected: {self._selected.get('kind', 'patch')}"
-        return "Keyboard shortcuts active"
+            return footer_selected(str(self._selected.get("kind", "patch")))
+        return FOOTER_READY
 
     def _select_row(self, cursor_row: int) -> None:
         if 0 <= cursor_row < len(self._rows):

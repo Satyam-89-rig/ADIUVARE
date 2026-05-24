@@ -88,16 +88,18 @@ The current TUI has seven screens:
 6. `Audit`
 7. `Changes`
 
-Common keys:
+The footer shows screen-specific shortcuts on the left and status guidance on
+the right. Common keys:
 
 ```text
-[1-7] switch screens
-[up/down] move in tables
-[Tab] move between inputs
+[1-7] tabs
+[up/down] navigate
+[Tab] next field
 [q] quit
 ```
 
-The TUI refreshes automatically every 3 seconds.
+Monitor uses `[up/down] scroll` for the live stream. Signals, Changes, and
+Monitor also show `[auto 3s]` for the 3-second auto-refresh cycle.
 
 ## Monitor
 

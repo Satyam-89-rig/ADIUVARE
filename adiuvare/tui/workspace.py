@@ -53,6 +53,27 @@ SIGNAL_COLORS = {
     "context": "#c47a35",
 }
 
+FOOTER_READY = "Keyboard shortcuts active"
+FOOTER_SEPARATOR = "  "
+
+SHORTCUT_TABS = "[1-7] tabs"
+SHORTCUT_QUIT = "[q] quit"
+SHORTCUT_NAVIGATE = "[up/down] navigate"
+SHORTCUT_SCROLL = "[up/down] scroll"
+SHORTCUT_AUTO_REFRESH = "[auto 3s]"
+
+
+def format_shortcut(key: str, label: str) -> str:
+    return f"[{key}] {label}"
+
+
+def join_shortcuts(*parts: str) -> str:
+    return FOOTER_SEPARATOR.join(part for part in parts if part)
+
+
+def footer_selected(value: str) -> str:
+    return f"Selected: {value}"
+
 
 class WorkspaceView(Container):
     """Provide the shared focus and footer conventions for each TUI screen."""
@@ -64,7 +85,7 @@ class WorkspaceView(Container):
     }
     """
 
-    shortcut_hints = "[1-7] tabs  [q] quit"
+    shortcut_hints = ""
     primary_id: str | None = None
     search_id: str | None = None
 
@@ -72,10 +93,16 @@ class WorkspaceView(Container):
         return
 
     def footer_status(self) -> str:
-        return "Keyboard shortcuts active"
+        return FOOTER_READY
 
     def shortcut_summary(self) -> str:
-        return self.shortcut_hints
+        parts = [SHORTCUT_TABS]
+        if self.shortcut_hints:
+            parts.append(self.shortcut_hints)
+        hints = join_shortcuts(*parts)
+        if "[q]" not in hints.lower():
+            hints = join_shortcuts(hints, SHORTCUT_QUIT)
+        return hints
 
     def focus_primary(self) -> None:
         if not self.primary_id:

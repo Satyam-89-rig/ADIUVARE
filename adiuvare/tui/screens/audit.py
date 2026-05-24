@@ -14,11 +14,16 @@ from ..operator_actions import (
     format_action_status,
 )
 from ..workspace import (
+    FOOTER_READY,
     PALETTE,
+    SHORTCUT_NAVIGATE,
     WorkspaceView,
     decision_color,
     decision_icon,
     dominant_color,
+    footer_selected,
+    format_shortcut,
+    join_shortcuts,
     render_score_bar,
     render_signal_bar,
     styled_label,
@@ -30,7 +35,11 @@ if TYPE_CHECKING:
 
 
 class AuditScreen(WorkspaceView):
-    shortcut_hints = "[1-7] tabs  [f] filter  [e] export JSONL  [up/down] navigate"
+    shortcut_hints = join_shortcuts(
+        format_shortcut("f", "filter"),
+        format_shortcut("e", "export JSONL"),
+        SHORTCUT_NAVIGATE,
+    )
     primary_id = "audit-table"
     search_id = "audit-identity-filter"
 
@@ -175,8 +184,8 @@ class AuditScreen(WorkspaceView):
 
     def footer_status(self) -> str:
         if self._selected:
-            return f"Selected: {self._selected.get('identity', '?')}"
-        return "Keyboard shortcuts active"
+            return footer_selected(str(self._selected.get("identity", "?")))
+        return FOOTER_READY
 
     def _select_row(self, cursor_row: int) -> None:
         if 0 <= cursor_row < len(self._rows):
